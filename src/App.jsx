@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { QRCode } from "react-qr-code";
 import * as htmlToImage from "html-to-image";
 import { useRef } from "react";
+import Footer from "./components/Footer";
+
 
 export default function QRGenerator() {
   const [tab, setTab] = useState("text");
@@ -71,7 +73,7 @@ const generateQRValue = () => {
       : "";
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-300 via-teal-300 to-cyan-300 p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-300 via-teal-300 to-cyan-300 p-6 gap-6">
       <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
         QR Code Generator ✨
       </h1>
@@ -277,6 +279,8 @@ const generateQRValue = () => {
            Download QR
         </button>
       </div>
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
