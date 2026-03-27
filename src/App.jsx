@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { QRCode } from "react-qr-code";
 import * as htmlToImage from "html-to-image";
-import { useRef } from "react";
 import Footer from "./components/Footer";
 
+// reusable field
+const FormField = ({ label, children }) => (
+  <div className="flex flex-col gap-1.5 text-left">
+    <label className="text-sm font-semibold text-teal-700">
+      {label}
+    </label>
+    {children}
+  </div>
+);
+
+const inputClass =
+  "w-full h-[42px] px-3 border border-teal-200 rounded-xl bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400";
 
 export default function QRGenerator() {
   const [tab, setTab] = useState("text");
@@ -13,16 +24,11 @@ export default function QRGenerator() {
 
   const handleDownload = async () => {
     if (!qrRef.current) return;
-
-    try {
-      const dataUrl = await htmlToImage.toPng(qrRef.current);
-      const link = document.createElement("a");
-      link.download = `${fileName || "qr-code"}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (err) {
-      console.error("Download error:", err);
-    }
+    const dataUrl = await htmlToImage.toPng(qrRef.current);
+    const link = document.createElement("a");
+    link.download = `${fileName || "qr-code"}.png`;
+    link.href = dataUrl;
+    link.click();
   };
 
   // TEXT
@@ -33,7 +39,7 @@ export default function QRGenerator() {
   const [password, setPassword] = useState("");
   const [encryption, setEncryption] = useState("WPA");
 
-  // BANKING (VietQR)
+  // BANK
   const [banks, setBanks] = useState([]);
   const [selectedBank, setSelectedBank] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -41,30 +47,21 @@ export default function QRGenerator() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
-  // load bank list
   useEffect(() => {
     fetch("https://api.vietqr.io/v2/banks")
       .then((res) => res.json())
-      .then((data) => setBanks(data.data))
-      .catch((err) => console.error(err));
+      .then((data) => setBanks(data.data));
   }, []);
 
-  // QR TEXT + WIFI
-const generateQRValue = () => {
-  if (tab === "text") {
-    if (!text) return null; // nếu chưa nhập, không hiển thị QR
-    return text;
-  }
+  const generateQRValue = () => {
+    if (tab === "text") return text || null;
+    if (tab === "wifi")
+      return ssid
+        ? `WIFI:T:${encryption};S:${ssid};P:${password};;`
+        : null;
+    return null;
+  };
 
-  if (tab === "wifi") {
-    if (!ssid) return null; // chưa nhập tên WiFi, không hiển thị
-    return `WIFI:T:${encryption};S:${ssid};P:${password};;`;
-  }
-
-  return null;
-};
-
-  // QR BANKING (VietQR)
   const qrBankUrl =
     selectedBank && accountNumber
       ? `https://img.vietqr.io/image/${selectedBank}-${accountNumber}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(
@@ -74,117 +71,78 @@ const generateQRValue = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-300 via-teal-300 to-cyan-300 p-6 gap-6">
-      <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+      <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
         QR Code Generator ✨
       </h1>
-      <p className="text-teal-700 mb-8 text-sm font-semibold">Tạo mã QR nhanh chóng và dễ dàng</p>
 
       {/* Tabs */}
-      <div className="flex gap-3 mb-8">
-        <button
-          type="button"
-          onClick={() => setTab("text")}
-          className={`px-6 py-2.5 rounded-full font-semibold transition ${
-            tab === "text"
-              ? "bg-emerald-500 text-white shadow-lg hover:bg-emerald-600"
-              : "bg-white/90 text-teal-700 hover:shadow-md"
-          }`}
-        >
-          Text
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab("wifi")}
-          className={`px-6 py-2.5 rounded-full font-semibold transition ${
-            tab === "wifi"
-              ? "bg-teal-500 text-white shadow-lg hover:bg-teal-600"
-              : "bg-white/90 text-teal-700 hover:shadow-md"
-          }`}
-        >
-          WiFi
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab("bank")}
-          className={`px-6 py-2.5 rounded-full font-semibold transition ${
-            tab === "bank"
-              ? "bg-cyan-500 text-white shadow-lg hover:bg-cyan-600"
-              : "bg-white/90 text-teal-700 hover:shadow-md"
-          }`}
-        >
-          Banking
-        </button>
+      <div className="flex gap-3">
+        {["text", "wifi", "bank"].map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-6 py-2.5 rounded-full font-semibold transition ${
+              tab === t
+                ? "bg-emerald-500 text-white shadow-lg"
+                : "bg-white/90 text-teal-700"
+            }`}
+          >
+            {t.toUpperCase()}
+          </button>
+        ))}
       </div>
 
       {/* Form */}
-      <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg w-full max-w-md flex flex-col gap-5 border border-white/50">
+      <div className="bg-white/90 p-8 rounded-2xl shadow-lg w-full max-w-md flex flex-col gap-5">
         {tab === "text" && (
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-teal-700">
-              Nội dung QR
-            </label>
+          <FormField label="Nội dung QR">
             <input
-              type="text"
-              placeholder="Nhập nội dung..."
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="w-full p-3 border border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50"
+              placeholder="Nhập nội dung..."
+              className={inputClass}
             />
-          </div>
+          </FormField>
         )}
 
         {tab === "wifi" && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Tên WiFi
-              </label>
+          <>
+            <FormField label="Tên WiFi">
               <input
                 value={ssid}
                 onChange={(e) => setSsid(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className={inputClass}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Mật khẩu
-              </label>
+            <FormField label="Mật khẩu">
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className={inputClass}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Bảo mật
-              </label>
+            <FormField label="Bảo mật">
               <select
                 value={encryption}
                 onChange={(e) => setEncryption(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className={inputClass}
               >
                 <option value="WPA">WPA/WPA2</option>
                 <option value="WEP">WEP</option>
                 <option value="nopass">Không mật khẩu</option>
               </select>
-            </div>
-          </div>
+            </FormField>
+          </>
         )}
 
         {tab === "bank" && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Ngân hàng
-              </label>
+          <>
+            <FormField label="Ngân hàng">
               <select
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 onChange={(e) => setSelectedBank(e.target.value)}
+                className={inputClass}
               >
                 <option value="">Chọn ngân hàng</option>
                 {banks.map((bank) => (
@@ -193,93 +151,79 @@ const generateQRValue = () => {
                   </option>
                 ))}
               </select>
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Số tài khoản
-              </label>
+            <FormField label="Số tài khoản">
               <input
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={inputClass}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Tên tài khoản
-              </label>
+            <FormField label="Tên tài khoản">
               <input
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={inputClass}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Số tiền
-              </label>
+            <FormField label="Số tiền">
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={inputClass}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-semibold text-teal-700 mb-2 block">
-                Nội dung
-              </label>
+            <FormField label="Nội dung">
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full p-3 border border-teal-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={inputClass}
               />
-            </div>
-          </div>
+            </FormField>
+          </>
         )}
       </div>
 
       {/* QR */}
       <div
-  className="mt-10 bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg flex flex-col items-center border border-white/50"
-  ref={qrRef}
->
-  {tab === "bank" ? (
-    qrBankUrl ? (
-      <img src={qrBankUrl} alt="VietQR" className="w-56 h-56" />
-    ) : (
-      <p className="text-teal-400 text-sm">Nhập thông tin để tạo QR</p>
-    )
-  ) : generateQRValue() ? (
-    <QRCode value={generateQRValue()} size={200} />
-  ) : (
-    <p className="text-teal-400 text-sm">Nhập đầy đủ thông tin để tạo QR</p>
-  )}
-</div>
+        ref={qrRef}
+        className="bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center"
+      >
+        {tab === "bank" ? (
+          qrBankUrl ? (
+            <img src={qrBankUrl} className="w-52 h-52" />
+          ) : (
+            <p className="text-gray-400 text-sm">Nhập thông tin</p>
+          )
+        ) : generateQRValue() ? (
+          <QRCode value={generateQRValue()} size={200} />
+        ) : (
+          <p className="text-gray-400 text-sm">Nhập dữ liệu</p>
+        )}
+      </div>
 
       {/* Download */}
-      <div className="mt-8 w-full max-w-md flex flex-col gap-3 bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
-        <label className="text-sm font-semibold text-teal-700">
-          Tên file QR
-        </label>
-        <input
-          type="text"
-          placeholder="Nhập tên file..."
-          value={fileName}
-          onChange={(e) => setFileName(e.target.value)}
-          className="w-full p-3 border border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-emerald-50"
-        />
+      <div className="w-full max-w-md flex flex-col gap-3 bg-white p-6 rounded-2xl shadow-lg">
+        <FormField label="Tên file QR">
+          <input
+            value={fileName}
+            onChange={(e) => setFileName(e.target.value)}
+            className={inputClass}
+          />
+        </FormField>
+
         <button
           onClick={handleDownload}
-          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-3 rounded-lg font-semibold hover:shadow-lg transition hover:from-emerald-600 hover:to-teal-600"
+          className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-3 rounded-xl font-semibold hover:shadow-lg"
         >
-           Download QR
+          Download QR
         </button>
       </div>
-      {/* Footer */}
+
       <Footer />
     </div>
   );
